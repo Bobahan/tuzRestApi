@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"url-shortener/internal/config"
+	"url-shortener/internal/http-server/handlers/redirect"
 	"url-shortener/internal/http-server/handlers/url"
 	"url-shortener/internal/lib/logger/sl"
 	"url-shortener/internal/logger"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/k0kubun/pp"
 )
 
 func main() {
@@ -47,15 +47,8 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello World!"))
-
-		requestId := middleware.GetReqID(r.Context())
-
-		pp.Println(requestId)
-	})
-
 	router.Post("/url", url.New(logger, storage))
+	router.Get("/{alias}", redirect.New(logger, storage))
 
 	server := &http.Server{
 		Addr:         config.Address,

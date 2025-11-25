@@ -31,11 +31,11 @@ type UrlSaver interface {
 	SaveUrl(urlToSave string, alias string) (int64, error) // сигнатура этого метода должна дублировать сигнатуру метода в storage
 }
 
-func New(log *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
+func New(logger *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.url.save.New"
 
-		log := log.With(
+		logger = logger.With(
 			slog.String("op", op),
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
@@ -44,17 +44,17 @@ func New(log *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
 
 		// Unmarshal запроса
 		if err := render.DecodeJSON(r.Body, &req); err != nil {
-			log.Error("failed to decode json body", sl.Err(err))
+			logger.Error("failed to decode json body", sl.Err(err))
 			render.JSON(w, r, response.Error("failed to decode request"))
 			return
 		}
 
-		log.Info("request body decoded", slog.Any("request", req))
+		logger.Info("request body decoded", slog.Any("request", req))
 
 		validate := validator.New()
 
 		if err := validate.Struct(req); err != nil {
-			log.Error("invalid request", sl.Err(err))
+			logger.Error("invalid request", sl.Err(err))
 			render.JSON(w, r, response.Error("invalid request"))
 			return
 		}
@@ -69,18 +69,18 @@ func New(log *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
 		id, err := urlSaver.SaveUrl(req.Url, alias)
 
 		if errors.Is(err, storage.ErrUrlExists) {
-			log.Info("url already exists", sl.Err(err))
+			logger.Info("url already exists", sl.Err(err))
 			render.JSON(w, r, response.Error("url already exists"))
 			return
 		}
 
 		if err != nil {
-			log.Info("failed to save url", sl.Err(err))
+			logger.Info("failed to save url", sl.Err(err))
 			render.JSON(w, r, response.Error("failed to save url"))
 			return
 		}
 
-		log.Info("url saved", slog.Any("id", id))
+		logger.Info("url saved", slog.Any("id", id))
 
 		render.JSON(w, r, Response{
 			Response: response.OK(),
