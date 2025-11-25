@@ -1,0 +1,71 @@
+package main
+
+import (
+	"net/http"
+	"os"
+	"url-shortener/internal/config"
+	"url-shortener/internal/http-server/handlers/url"
+	"url-shortener/internal/lib/logger/sl"
+	"url-shortener/internal/logger"
+	"url-shortener/internal/storage/sqlite"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/k0kubun/pp"
+)
+
+func main() {
+	// config +
+	// logger +
+	// storage +
+	// router +
+	// server +
+
+	config := config.New()
+
+	logger := logger.New(config.Env)
+
+	logger.Info("server has been started")
+	logger.Debug("debug logger")
+
+	storage, err := sqlite.New(config.StoragePath)
+
+	if err != nil {
+		logger.Error("failed to init storage", sl.Err(err))
+		os.Exit(1)
+	}
+
+	if err != nil {
+		logger.Error("failed to get url", sl.Err(err))
+		os.Exit(1)
+	}
+
+	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
+
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello World!"))
+
+		requestId := middleware.GetReqID(r.Context())
+
+		pp.Println(requestId)
+	})
+
+	router.Post("/url", url.New(logger, storage))
+
+	server := &http.Server{
+		Addr:         config.Address,
+		Handler:      router,
+		ReadTimeout:  config.HttpServer.Timeout,
+		WriteTimeout: config.HttpServer.Timeout,
+		IdleTimeout:  config.HttpServer.IdleTimeout,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		logger.Error("failed to start server")
+	}
+}
