@@ -47,7 +47,14 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	router.Post("/url", url.New(logger, storage))
+	router.Route("/url", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
+			config.HttpServer.User: config.HttpServer.Password,
+		}))
+
+		r.Post("/", url.New(logger, storage))
+	})
+
 	router.Get("/{alias}", redirect.New(logger, storage))
 
 	server := &http.Server{
